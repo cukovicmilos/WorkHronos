@@ -16,17 +16,12 @@ struct TimerBarView: View {
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                projectField
-                elapsedField
-                startStopButton
-            }
-            .zIndex(10)   // suggestion overlay mora preko sadržaja ispod (kasniji siblings)
-            if store.running != nil {
-                startedAtRow
-            }
+        HStack(spacing: 8) {
+            projectField
+            elapsedField
+            startStopButton
         }
+        .zIndex(10)   // suggestion overlay mora preko sadržaja ispod (kasniji siblings)
         .onReceive(tick) { _ in
             refreshElapsed()
             store.rollDateIfNeeded()
@@ -200,24 +195,5 @@ struct TimerBarView: View {
                 .foregroundStyle(store.running != nil ? .red : .green)
         }
         .buttonStyle(.plain)
-    }
-
-    private var startedAtRow: some View {
-        HStack(spacing: 4) {
-            Text("started at")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            DatePicker(
-                "",
-                selection: Binding(
-                    get: { store.running?.startAt ?? Date() },
-                    set: { store.setRunningStart($0) }
-                ),
-                displayedComponents: [.hourAndMinute]
-            )
-            .labelsHidden()
-            .datePickerStyle(.field)
-            .frame(width: 70)
-        }
     }
 }

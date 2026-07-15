@@ -118,12 +118,6 @@ final class AppStore: ObservableObject {
         return true
     }
 
-    func setRunningStart(_ date: Date) {
-        // Toggl semantika: start "posle sada" znači prethodni dan, ne clamp na now.
-        let start = date > Date() ? calendar.date(byAdding: .day, value: -1, to: date)! : date
-        perform { try db.updateRunning { $0.startAt = start } }
-    }
-
     func renameRunning(to name: String) {
         perform { try db.updateRunning { $0.project = name } }
     }
