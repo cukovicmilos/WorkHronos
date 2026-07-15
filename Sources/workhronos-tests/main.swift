@@ -61,6 +61,10 @@ func testDurationFormat() {
     expectEqual(DurationFormat.format(36_000), "10:00:00", "format 36000")
     expectEqual(DurationFormat.format(-5), "0:00:00", "format negativan")
 
+    expectEqual(DurationFormat.formatHoursMinutes(0), "0:00", "formatHM 0")
+    expectEqual(DurationFormat.formatHoursMinutes(5400), "1:30", "formatHM 5400")
+    expectEqual(DurationFormat.formatHoursMinutes(36_059), "10:00", "formatHM seče sekunde")
+
     expectEqual(DurationFormat.parse("1:30:45"), 5445, "parse h:mm:ss")
     expectEqual(DurationFormat.parse("0:00:30"), 30, "parse 0:00:30")
     expectEqual(DurationFormat.parse("1:30"), 5400, "parse h:mm (Toggl)")

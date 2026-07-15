@@ -29,7 +29,7 @@ struct TimerBarView: View {
         }
         .onReceive(tick) { _ in
             refreshElapsed()
-            store.rollWeekIfNeeded()
+            store.rollDateIfNeeded()
         }
         .onChange(of: store.running) { _, running in
             if let running {

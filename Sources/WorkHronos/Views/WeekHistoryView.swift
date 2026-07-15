@@ -33,8 +33,14 @@ struct WeekHistoryView: View {
                 .onTapGesture { store.goToCurrentWeek() }
                 .help("Click to jump to the current week")
             Spacer()
-            Text(DurationFormat.format(store.weekTotal))
-                .font(.callout.monospacedDigit().weight(.semibold))
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                (Text("Today: ").foregroundStyle(.secondary)
+                 + Text(DurationFormat.formatHoursMinutes(store.todayTotal(asOf: context.date)))
+                 + Text("  Week: ").foregroundStyle(.secondary)
+                 + Text(DurationFormat.formatHoursMinutes(store.weekTotal(asOf: context.date))))
+                    .font(.callout.monospacedDigit().weight(.semibold))
+                    .lineLimit(1)
+            }
         }
     }
 

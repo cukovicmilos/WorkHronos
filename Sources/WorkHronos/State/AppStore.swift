@@ -6,6 +6,7 @@ import WorkHronosKit
 final class AppStore: ObservableObject {
     @Published private(set) var running: TimeEntry?
     @Published private(set) var weekEntries: [TimeEntry] = []
+    @Published private(set) var todayEntries: [TimeEntry] = []
     @Published var selectedWeekStart: Date {
         didSet { startWeekObservation() }
     }
@@ -14,7 +15,9 @@ final class AppStore: ObservableObject {
     private(set) var db: AppDatabase
     private var runningCancellable: AnyDatabaseCancellable?
     private var weekCancellable: AnyDatabaseCancellable?
+    private var dayCancellable: AnyDatabaseCancellable?
     private var lastKnownCurrentWeekStart: Date
+    private var lastKnownDayStart: Date
 
     let calendar = Calendar.iso8601
 
@@ -23,6 +26,7 @@ final class AppStore: ObservableObject {
         let currentWeekStart = WeekGrouping.weekInterval(containing: Date()).start
         self.selectedWeekStart = currentWeekStart
         self.lastKnownCurrentWeekStart = currentWeekStart
+        self.lastKnownDayStart = Calendar.iso8601.startOfDay(for: Date())
         startObservations()
     }
 
@@ -33,7 +37,24 @@ final class AppStore: ObservableObject {
 
     var groups: [ProjectGroup] { WeekGrouping.groups(from: weekEntries) }
 
-    var weekTotal: TimeInterval { weekEntries.reduce(0) { $0 + $1.duration() } }
+    /// Total nedelje; running timer se uračunava ako je startovao u izabranoj nedelji (Toggl).
+    func weekTotal(asOf now: Date = Date()) -> TimeInterval {
+        var total = weekEntries.reduce(0) { $0 + $1.duration() }
+        // ista half-open granica kao stoppedRequest (DateInterval.contains je inclusive na end)
+        if let running, running.startAt >= weekInterval.start, running.startAt < weekInterval.end {
+            total += running.duration(asOf: now)
+        }
+        return total
+    }
+
+    /// Total danas; entry pripada danu svog starta, running se uračunava ako je startovao danas.
+    func todayTotal(asOf now: Date = Date()) -> TimeInterval {
+        var total = todayEntries.reduce(0) { $0 + $1.duration() }
+        if let running, running.startAt >= calendar.startOfDay(for: now) {
+            total += running.duration(asOf: now)
+        }
+        return total
+    }
 
     // MARK: - Observations
 
@@ -48,6 +69,22 @@ final class AppStore: ObservableObject {
             onChange: { [weak self] entry in self?.running = entry }
         )
         startWeekObservation()
+        startDayObservation()
+    }
+
+    private func startDayObservation() {
+        let dayStart = calendar.startOfDay(for: Date())
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+        let interval = DateInterval(start: dayStart, end: dayEnd)
+        let observation = ValueObservation.tracking { db in
+            try TimeEntry.stoppedRequest(in: interval).fetchAll(db)
+        }
+        dayCancellable = observation.start(
+            in: db.dbQueue,
+            scheduling: .immediate,
+            onError: { [weak self] error in self?.errorMessage = error.localizedDescription },
+            onChange: { [weak self] entries in self?.todayEntries = entries }
+        )
     }
 
     private func startWeekObservation() {
@@ -140,6 +177,8 @@ final class AppStore: ObservableObject {
             runningCancellable = nil
             weekCancellable?.cancel()
             weekCancellable = nil
+            dayCancellable?.cancel()
+            dayCancellable = nil
             try? db.close()
             db = newDb
             startObservations()
@@ -148,14 +187,22 @@ final class AppStore: ObservableObject {
         }
     }
 
-    /// Ako je app otvoren preko ponedeljka 00:00, "tekuća" nedelja se pomera sa realnim vremenom.
-    func rollWeekIfNeeded() {
-        let actual = WeekGrouping.weekInterval(containing: Date(), calendar: calendar).start
-        guard actual != lastKnownCurrentWeekStart else { return }
-        if selectedWeekStart == lastKnownCurrentWeekStart {
-            selectedWeekStart = actual
+    /// Ako je app otvoren preko ponoći / ponedeljka 00:00, "danas" i "tekuća" nedelja
+    /// se pomeraju sa realnim vremenom. Pozivač: 1s tick u TimerBarView (uvek mount-ovan).
+    func rollDateIfNeeded() {
+        let actualWeek = WeekGrouping.weekInterval(containing: Date(), calendar: calendar).start
+        if actualWeek != lastKnownCurrentWeekStart {
+            if selectedWeekStart == lastKnownCurrentWeekStart {
+                selectedWeekStart = actualWeek
+            }
+            lastKnownCurrentWeekStart = actualWeek
         }
-        lastKnownCurrentWeekStart = actual
+
+        let actualDay = calendar.startOfDay(for: Date())
+        if actualDay != lastKnownDayStart {
+            lastKnownDayStart = actualDay
+            startDayObservation()
+        }
     }
 
     private func perform(_ action: () throws -> Void) {

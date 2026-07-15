@@ -7,6 +7,12 @@ public enum DurationFormat {
         return String(format: "%d:%02d:%02d", total / 3600, (total % 3600) / 60, total % 60)
     }
 
+    /// Kompaktni format za totale: H:MM (bez sekundi).
+    public static func formatHoursMinutes(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval.rounded()))
+        return String(format: "%d:%02d", total / 3600, (total % 3600) / 60)
+    }
+
     /// Parsira unos trajanja (Toggl semantika):
     /// "1:30:45" = h:mm:ss, "1:30" = h:mm, "90" = 90 minuta, "1h 30m", "45m", "30s".
     public static func parse(_ input: String) -> TimeInterval? {
