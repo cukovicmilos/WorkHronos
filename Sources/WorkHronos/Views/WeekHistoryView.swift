@@ -4,6 +4,9 @@ import WorkHronosKit
 struct WeekHistoryView: View {
     @EnvironmentObject var store: AppStore
     @State private var editingEntry: TimeEntry?
+    @State private var deletingEntry: TimeEntry?
+    @State private var deletingProject: String?
+    @State private var deletingProjectCount: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,6 +22,33 @@ struct WeekHistoryView: View {
         }
         .sheet(item: $editingEntry) { entry in
             EntryEditSheet(entry: entry)
+        }
+        .confirmationDialog(
+            "Delete this entry?",
+            isPresented: Binding(
+                get: { deletingEntry != nil },
+                set: { if !$0 { deletingEntry = nil } }
+            ),
+            presenting: deletingEntry
+        ) { entry in
+            Button("Delete", role: .destructive) { store.delete(entry) }
+        } message: { entry in
+            Text("\(entry.project.isEmpty ? "(no project)" : entry.project) · \(DurationFormat.format(entry.duration()))")
+        }
+        .confirmationDialog(
+            "Delete entire project?",
+            isPresented: Binding(
+                get: { deletingProject != nil },
+                set: { if !$0 { deletingProject = nil } }
+            ),
+            presenting: deletingProject
+        ) { project in
+            Button(deletingProjectCount.map { "Delete \($0) entries" } ?? "Delete All Entries",
+                   role: .destructive) {
+                store.deleteProject(named: project)
+            }
+        } message: { project in
+            Text("This permanently deletes all entries of \"\(project.isEmpty ? "(no project)" : project)\" across all weeks.")
         }
     }
 
@@ -76,6 +106,12 @@ struct WeekHistoryView: View {
                     }
                 } label: {
                     groupLabel(group)
+                        .contextMenu {
+                            Button("Delete Project…", role: .destructive) {
+                                deletingProjectCount = store.entryCount(project: group.project)
+                                deletingProject = group.project
+                            }
+                        }
                 }
             }
         }
@@ -127,6 +163,13 @@ struct WeekHistoryView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { editingEntry = entry }
+        .contextMenu {
+            Button("Edit…") { editingEntry = entry }
+            Button("Delete", role: .destructive) { deletingEntry = entry }
+        }
+        .swipeActions(edge: .trailing) {
+            Button("Delete", role: .destructive) { deletingEntry = entry }
+        }
     }
 
     private func timeRange(_ entry: TimeEntry) -> String {

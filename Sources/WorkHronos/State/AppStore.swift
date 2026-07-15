@@ -138,6 +138,15 @@ final class AppStore: ObservableObject {
         perform { try db.delete(entry) }
     }
 
+    func deleteProject(named project: String) {
+        perform { try db.deleteAllEntries(project: project) }
+    }
+
+    /// nil kada count nije pouzdan (DB greška) — UI tada ne prikazuje broj.
+    func entryCount(project: String) -> Int? {
+        try? db.entryCount(project: project)
+    }
+
     // MARK: - Week navigation
 
     func previousWeek() { shiftWeek(by: -1) }

@@ -52,6 +52,20 @@ extension AppDatabase {
         try write { db in _ = try TimeEntry.deleteOne(db, key: id) }
     }
 
+    /// Broj svih entry-ja projekta (kroz sve nedelje).
+    public func entryCount(project: String) throws -> Int {
+        try dbQueue.read { db in
+            try TimeEntry.filter(Column("project") == project).fetchCount(db)
+        }
+    }
+
+    /// Briše sve entry-je projekta (uključujući eventualni running).
+    public func deleteAllEntries(project: String) throws {
+        try write { db in
+            _ = try TimeEntry.filter(Column("project") == project).deleteAll(db)
+        }
+    }
+
     /// Distinct nazivi projekata, najskorije korišćeni prvi.
     public func projectSuggestions(limit: Int = 50) throws -> [String] {
         try dbQueue.read { db in

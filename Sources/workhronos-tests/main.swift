@@ -234,6 +234,27 @@ func testGrouping() {
     expectClose(groups[0].entries[0].duration(), 900, accuracy: 0.5, "najskoriji entry prvi u grupi")
 }
 
+func testDeleteAllEntriesForProject() throws {
+    try withTempDatabase { db, _ in
+        let now = Date()
+        try db.write { dbc in
+            for (project, offset) in [("alpha", -7200.0), ("beta", -3600.0), ("alpha", -1800.0)] {
+                var e = TimeEntry(project: project, startAt: now.addingTimeInterval(offset),
+                                  endAt: now.addingTimeInterval(offset + 60),
+                                  createdAt: now, updatedAt: now)
+                try e.insert(dbc)
+            }
+        }
+        try db.startTimer(project: "alpha")
+
+        expectEqual(try db.entryCount(project: "alpha"), 3, "count uključuje running")
+        try db.deleteAllEntries(project: "alpha")
+        expectEqual(try db.entryCount(project: "alpha"), 0, "alpha obrisana")
+        expectNil(try db.fetchRunning(), "running entry projekta obrisan")
+        expectEqual(try db.entryCount(project: "beta"), 1, "beta netaknuta")
+    }
+}
+
 func testProjectSuggestionsRecencyOrdered() throws {
     try withTempDatabase { db, _ in
         let now = Date()
@@ -278,6 +299,7 @@ let tests: [(String, () throws -> Void)] = [
     ("UpdateRunningIsNoOpAfterStop", testUpdateRunningIsNoOpAfterStop),
     ("WeekRequestFiltersAndSorts", testWeekRequestFiltersAndSorts),
     ("Grouping", testGrouping),
+    ("DeleteAllEntriesForProject", testDeleteAllEntriesForProject),
     ("ProjectSuggestionsRecencyOrdered", testProjectSuggestionsRecencyOrdered),
     ("ExternalChangeDetection", testExternalChangeDetection),
 ]

@@ -34,6 +34,10 @@ struct TimerBarView: View {
         .onChange(of: store.running) { _, running in
             if let running {
                 projectText = running.project
+            } else if focus != .project {
+                // timer zaustavljen spolja (brisanje projekta, Dropbox sync) — ne ostavljaj
+                // ime obrisanog projekta u polju; ali ne diraj tekst dok korisnik kuca
+                projectText = ""
             }
             refreshElapsed()
         }
