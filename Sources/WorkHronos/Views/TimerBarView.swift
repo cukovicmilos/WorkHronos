@@ -16,13 +16,13 @@ struct TimerBarView: View {
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            projectField
-                .zIndex(10)   // suggestion overlay mora preko elapsed reda (kasniji sibling)
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
+                projectField
                 elapsedField
                 startStopButton
             }
+            .zIndex(10)   // suggestion overlay mora preko sadržaja ispod (kasniji siblings)
             if store.running != nil {
                 startedAtRow
             }
@@ -133,9 +133,10 @@ struct TimerBarView: View {
     private var elapsedField: some View {
         TextField("0:00:00", text: $elapsedText)
             .textFieldStyle(.roundedBorder)
-            .font(.system(.title2, design: .monospaced))
+            .font(.body.monospacedDigit())
             .multilineTextAlignment(.center)
-            .frame(width: 130)
+            .frame(minWidth: 82)
+            .fixedSize(horizontal: true, vertical: false)
             .focused($focus, equals: .elapsed)
             .disabled(store.running == nil)
             .onSubmit {
@@ -191,11 +192,10 @@ struct TimerBarView: View {
             }
         } label: {
             Image(systemName: store.running != nil ? "stop.circle.fill" : "play.circle.fill")
-                .font(.system(size: 32))
+                .font(.system(size: 24))
                 .foregroundStyle(store.running != nil ? .red : .green)
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 
     private var startedAtRow: some View {
