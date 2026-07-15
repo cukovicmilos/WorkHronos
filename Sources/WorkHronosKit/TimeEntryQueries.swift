@@ -26,6 +26,17 @@ extension AppDatabase {
         try running.update(db)
     }
 
+    /// Atomično menja running entry (re-fetch unutar transakcije — bez stale snapshot-a);
+    /// no-op ako ništa ne radi (npr. timer zaustavljen u međuvremenu).
+    public func updateRunning(now: Date = Date(), _ mutate: (inout TimeEntry) -> Void) throws {
+        try write { db in
+            guard var running = try TimeEntry.runningRequest().fetchOne(db) else { return }
+            mutate(&running)
+            running.updatedAt = now
+            try running.update(db)
+        }
+    }
+
     public func fetchRunning() throws -> TimeEntry? {
         try dbQueue.read { db in try TimeEntry.runningRequest().fetchOne(db) }
     }

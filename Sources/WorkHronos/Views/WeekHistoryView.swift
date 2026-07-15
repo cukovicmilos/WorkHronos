@@ -89,7 +89,21 @@ struct WeekHistoryView: View {
             Spacer()
             Text(DurationFormat.format(group.totalSeconds))
                 .font(.body.monospacedDigit())
+            continueButton(project: group.project)
         }
+    }
+
+    /// Toggl "continue": startuje novi timer sa nazivom projekta iz liste.
+    private func continueButton(project: String) -> some View {
+        Button {
+            store.start(project: project)
+        } label: {
+            Image(systemName: "play.circle")
+                .foregroundStyle(.green)
+        }
+        .buttonStyle(.borderless)
+        .help("Start timer for this project")
+        .accessibilityLabel("Start timer for this project")
     }
 
     private func entryRow(_ entry: TimeEntry) -> some View {
@@ -103,6 +117,7 @@ struct WeekHistoryView: View {
             Spacer()
             Text(DurationFormat.format(entry.duration()))
                 .font(.callout.monospacedDigit())
+            continueButton(project: entry.project)
         }
         .contentShape(Rectangle())
         .onTapGesture { editingEntry = entry }

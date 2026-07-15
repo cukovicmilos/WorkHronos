@@ -18,6 +18,7 @@ struct TimerBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             projectField
+                .zIndex(10)   // suggestion overlay mora preko elapsed reda (kasniji sibling)
             HStack(spacing: 8) {
                 elapsedField
                 startStopButton
@@ -121,11 +122,10 @@ struct TimerBarView: View {
     }
 
     private func commitProjectRename() {
-        guard var running = store.running else { return }
+        guard let running = store.running else { return }
         let name = projectText.trimmingCharacters(in: .whitespaces)
         guard name != running.project else { return }
-        running.project = name
-        store.save(running)
+        store.renameRunning(to: name)
     }
 
     // MARK: - Elapsed field

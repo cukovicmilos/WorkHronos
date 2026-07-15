@@ -23,7 +23,8 @@ struct ProjectAutocomplete: View {
             }
         }
         .padding(.vertical, 4)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+        // Neprovidna pozadina — materijal propušta sadržaj ispod liste.
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.separator))
         .shadow(radius: 4, y: 2)
         .frame(maxWidth: 300)

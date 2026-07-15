@@ -170,6 +170,21 @@ func testDurationEditShiftsStart() throws {
     }
 }
 
+func testUpdateRunningIsNoOpAfterStop() throws {
+    try withTempDatabase { db, _ in
+        try db.startTimer(project: "alpha")
+        try db.updateRunning { $0.project = "renamed" }
+        expectEqual(try db.fetchRunning()?.project, "renamed", "updateRunning menja running entry")
+
+        // race scenario: timer zaustavljen pre nego što stigne update sa stale snapshot-om
+        try db.stopRunning()
+        try db.updateRunning { $0.project = "ghost" }
+        expectNil(try db.fetchRunning(), "updateRunning posle stop ne oživljava entry")
+        let all = try db.dbQueue.read { try TimeEntry.fetchAll($0) }
+        expectEqual(all.map(\.project), ["renamed"], "zaustavljeni entry netaknut")
+    }
+}
+
 func testWeekRequestFiltersAndSorts() throws {
     try withTempDatabase { db, _ in
         let calendar = Calendar.iso8601
@@ -256,6 +271,7 @@ let tests: [(String, () throws -> Void)] = [
     ("StartingNewTimerStopsPrevious", testStartingNewTimerStopsPrevious),
     ("OnlyOneRunningEnforcedByIndex", testOnlyOneRunningEnforcedByIndex),
     ("DurationEditShiftsStart", testDurationEditShiftsStart),
+    ("UpdateRunningIsNoOpAfterStop", testUpdateRunningIsNoOpAfterStop),
     ("WeekRequestFiltersAndSorts", testWeekRequestFiltersAndSorts),
     ("Grouping", testGrouping),
     ("ProjectSuggestionsRecencyOrdered", testProjectSuggestionsRecencyOrdered),

@@ -76,19 +76,19 @@ final class AppStore: ObservableObject {
     /// Toggl semantika: edit trajanja dok timer radi pomera start_at unazad.
     @discardableResult
     func setRunningDuration(_ text: String) -> Bool {
-        guard let running, let duration = DurationFormat.parse(text) else { return false }
-        var entry = running
-        entry.startAt = Date().addingTimeInterval(-duration)
-        perform { try db.save(entry) }
+        guard running != nil, let duration = DurationFormat.parse(text) else { return false }
+        perform { try db.updateRunning { $0.startAt = Date().addingTimeInterval(-duration) } }
         return true
     }
 
     func setRunningStart(_ date: Date) {
-        guard let running else { return }
-        var entry = running
         // Toggl semantika: start "posle sada" znači prethodni dan, ne clamp na now.
-        entry.startAt = date > Date() ? calendar.date(byAdding: .day, value: -1, to: date)! : date
-        perform { try db.save(entry) }
+        let start = date > Date() ? calendar.date(byAdding: .day, value: -1, to: date)! : date
+        perform { try db.updateRunning { $0.startAt = start } }
+    }
+
+    func renameRunning(to name: String) {
+        perform { try db.updateRunning { $0.project = name } }
     }
 
     // MARK: - Entry editing
