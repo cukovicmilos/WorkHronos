@@ -14,7 +14,7 @@ struct WeekHistoryView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 8)
             Divider()
-            if store.groups.isEmpty {
+            if store.days.isEmpty {
                 emptyState
             } else {
                 groupList
@@ -99,23 +99,40 @@ struct WeekHistoryView: View {
 
     private var groupList: some View {
         List {
-            ForEach(store.groups) { group in
-                DisclosureGroup {
-                    ForEach(group.entries) { entry in
-                        entryRow(entry)
-                    }
-                } label: {
-                    groupLabel(group)
-                        .contextMenu {
-                            Button("Delete Project…", role: .destructive) {
-                                deletingProjectCount = store.entryCount(project: group.project)
-                                deletingProject = group.project
+            ForEach(store.days) { day in
+                Section {
+                    ForEach(day.projects) { group in
+                        DisclosureGroup {
+                            ForEach(group.entries) { entry in
+                                entryRow(entry)
                             }
+                        } label: {
+                            groupLabel(group)
+                                .contextMenu {
+                                    Button("Delete Project…", role: .destructive) {
+                                        deletingProjectCount = store.entryCount(project: group.project)
+                                        deletingProject = group.project
+                                    }
+                                }
                         }
+                    }
+                } header: {
+                    dayHeader(day)
                 }
             }
         }
         .listStyle(.inset)
+    }
+
+    private func dayHeader(_ day: DayGroup) -> some View {
+        HStack {
+            Text(day.dayStart.formatted(.dateTime.weekday(.wide).day().month(.abbreviated)))
+            Spacer()
+            Text(DurationFormat.format(day.totalSeconds))
+                .monospacedDigit()
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
     }
 
     private func groupLabel(_ group: ProjectGroup) -> some View {
@@ -150,9 +167,6 @@ struct WeekHistoryView: View {
 
     private func entryRow(_ entry: TimeEntry) -> some View {
         HStack {
-            Text(entry.startAt.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
-                .foregroundStyle(.secondary)
-                .frame(width: 90, alignment: .leading)
             Text(timeRange(entry))
                 .font(.callout.monospacedDigit())
                 .foregroundStyle(.secondary)

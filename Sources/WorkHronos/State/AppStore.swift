@@ -35,7 +35,7 @@ final class AppStore: ObservableObject {
         return DateInterval(start: selectedWeekStart, end: end)
     }
 
-    var groups: [ProjectGroup] { WeekGrouping.groups(from: weekEntries) }
+    var days: [DayGroup] { WeekGrouping.days(from: weekEntries, calendar: calendar) }
 
     /// Total nedelje; running timer se uračunava ako je startovao u izabranoj nedelji (Toggl).
     func weekTotal(asOf now: Date = Date()) -> TimeInterval {

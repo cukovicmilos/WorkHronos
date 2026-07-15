@@ -7,7 +7,27 @@ public struct ProjectGroup: Identifiable, Equatable {
     public var id: String { project }
 }
 
+public struct DayGroup: Identifiable, Equatable {
+    public let dayStart: Date
+    public let totalSeconds: TimeInterval
+    public let projects: [ProjectGroup]
+    public var id: Date { dayStart }
+}
+
 public enum WeekGrouping {
+    /// Grupisanje po danima (najskoriji dan prvi), unutar dana po projektu.
+    public static func days(from entries: [TimeEntry], calendar: Calendar = .iso8601) -> [DayGroup] {
+        Dictionary(grouping: entries) { calendar.startOfDay(for: $0.startAt) }
+            .map { day, dayEntries in
+                DayGroup(
+                    dayStart: day,
+                    totalSeconds: dayEntries.reduce(0) { $0 + $1.duration() },
+                    projects: groups(from: dayEntries)
+                )
+            }
+            .sorted { $0.dayStart > $1.dayStart }
+    }
+
     /// ISO nedelja (ponedeljak start) koja sadrži dati datum.
     public static func weekInterval(containing date: Date, calendar: Calendar = .iso8601) -> DateInterval {
         calendar.dateInterval(of: .weekOfYear, for: date)!

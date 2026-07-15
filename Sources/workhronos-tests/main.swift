@@ -234,6 +234,35 @@ func testGrouping() {
     expectClose(groups[0].entries[0].duration(), 900, accuracy: 0.5, "najskoriji entry prvi u grupi")
 }
 
+func testDayGrouping() {
+    let calendar = Calendar.iso8601
+    let todayNoon = calendar.startOfDay(for: Date()).addingTimeInterval(12 * 3600)
+    let yesterdayNoon = calendar.date(byAdding: .day, value: -1, to: todayNoon)!
+    func entry(_ project: String, at start: Date, duration: TimeInterval) -> TimeEntry {
+        TimeEntry(project: project, startAt: start, endAt: start.addingTimeInterval(duration),
+                  createdAt: start, updatedAt: start)
+    }
+    let days = WeekGrouping.days(from: [
+        entry("a", at: yesterdayNoon, duration: 600),
+        entry("a", at: todayNoon, duration: 300),
+        entry("b", at: todayNoon.addingTimeInterval(3600), duration: 900),
+    ], calendar: calendar)
+
+    expectEqual(days.count, 2, "dva dana")
+    expectEqual(days[0].dayStart, calendar.startOfDay(for: todayNoon), "najskoriji dan prvi")
+    expectClose(days[0].totalSeconds, 1200, accuracy: 0.5, "dnevni total")
+    expectEqual(days[0].projects.map(\.project), ["b", "a"], "projekti unutar dana po recency")
+    expectEqual(days[1].projects.map(\.project), ["a"], "jučerašnji dan")
+
+    // entry preko ponoći pripada danu svog starta, sa punim trajanjem
+    let lateYesterday = calendar.startOfDay(for: todayNoon).addingTimeInterval(-1800) // juče 23:30
+    let crossing = WeekGrouping.days(from: [entry("x", at: lateYesterday, duration: 3600)],
+                                     calendar: calendar)
+    expectEqual(crossing.count, 1, "midnight-crossing u jednom bucket-u")
+    expectEqual(crossing[0].dayStart, calendar.startOfDay(for: lateYesterday), "bucket = dan starta")
+    expectClose(crossing[0].totalSeconds, 3600, accuracy: 0.5, "puno trajanje u danu starta")
+}
+
 func testDeleteAllEntriesForProject() throws {
     try withTempDatabase { db, _ in
         let now = Date()
@@ -299,6 +328,7 @@ let tests: [(String, () throws -> Void)] = [
     ("UpdateRunningIsNoOpAfterStop", testUpdateRunningIsNoOpAfterStop),
     ("WeekRequestFiltersAndSorts", testWeekRequestFiltersAndSorts),
     ("Grouping", testGrouping),
+    ("DayGrouping", testDayGrouping),
     ("DeleteAllEntriesForProject", testDeleteAllEntriesForProject),
     ("ProjectSuggestionsRecencyOrdered", testProjectSuggestionsRecencyOrdered),
     ("ExternalChangeDetection", testExternalChangeDetection),
