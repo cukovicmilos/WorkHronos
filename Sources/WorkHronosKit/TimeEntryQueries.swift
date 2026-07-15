@@ -13,6 +13,18 @@ extension AppDatabase {
         }
     }
 
+    /// Ručni unos već završenog intervala (bez start/stop) — Toggl manual mode.
+    @discardableResult
+    public func addCompletedEntry(project: String, start: Date, end: Date,
+                                  now: Date = Date()) throws -> TimeEntry {
+        try write { db in
+            var entry = TimeEntry(project: project, startAt: start, endAt: end,
+                                  createdAt: now, updatedAt: now)
+            try entry.insert(db)
+            return entry
+        }
+    }
+
     public func stopRunning(now: Date = Date()) throws {
         try write { db in
             try Self.stopRunningEntry(db, at: now)

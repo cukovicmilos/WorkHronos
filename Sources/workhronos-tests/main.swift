@@ -174,6 +174,22 @@ func testDurationEditShiftsStart() throws {
     }
 }
 
+func testAddCompletedEntry() throws {
+    try withTempDatabase { db, _ in
+        let end = Date()
+        let entry = try db.addCompletedEntry(project: "manual", start: end.addingTimeInterval(-1800), end: end)
+        expect(entry.id != nil, "manual entry ima id")
+        expect(!entry.isRunning, "manual entry nije running")
+        expectClose(entry.duration(), 1800, accuracy: 0.5, "trajanje manual entry-ja")
+        expectNil(try db.fetchRunning(), "manual unos ne dira running stanje")
+
+        // ne remeti postojeći running timer
+        try db.startTimer(project: "live")
+        _ = try db.addCompletedEntry(project: "manual2", start: end.addingTimeInterval(-600), end: end)
+        expectEqual(try db.fetchRunning()?.project, "live", "running preživljava manual unos")
+    }
+}
+
 func testUpdateRunningIsNoOpAfterStop() throws {
     try withTempDatabase { db, _ in
         try db.startTimer(project: "alpha")
@@ -325,6 +341,7 @@ let tests: [(String, () throws -> Void)] = [
     ("StartingNewTimerStopsPrevious", testStartingNewTimerStopsPrevious),
     ("OnlyOneRunningEnforcedByIndex", testOnlyOneRunningEnforcedByIndex),
     ("DurationEditShiftsStart", testDurationEditShiftsStart),
+    ("AddCompletedEntry", testAddCompletedEntry),
     ("UpdateRunningIsNoOpAfterStop", testUpdateRunningIsNoOpAfterStop),
     ("WeekRequestFiltersAndSorts", testWeekRequestFiltersAndSorts),
     ("Grouping", testGrouping),

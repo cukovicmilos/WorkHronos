@@ -118,6 +118,18 @@ final class AppStore: ObservableObject {
         return true
     }
 
+    /// Ručni unos: zabeleži završen interval koji se završava sada.
+    func addManualEntry(project: String, duration: TimeInterval) {
+        let end = Date()
+        perform {
+            try db.addCompletedEntry(
+                project: project.trimmingCharacters(in: .whitespaces),
+                start: end.addingTimeInterval(-duration),
+                end: end
+            )
+        }
+    }
+
     func renameRunning(to name: String) {
         perform { try db.updateRunning { $0.project = name } }
     }

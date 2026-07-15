@@ -7,6 +7,7 @@ struct TimerBarView: View {
     @State private var projectText = ""
     @State private var elapsedText = "0:00:00"
     @State private var elapsedEdited = false
+    @State private var elapsedSessionRunningID: Int64?
     @State private var suggestions: [String] = []
     @State private var highlightIndex: Int?
     @FocusState private var focus: Field?
@@ -137,7 +138,6 @@ struct TimerBarView: View {
             .frame(minWidth: 82)
             .fixedSize(horizontal: true, vertical: false)
             .focused($focus, equals: .elapsed)
-            .disabled(store.running == nil)
             .onSubmit {
                 commitElapsed()
                 elapsedEdited = false
@@ -152,11 +152,16 @@ struct TimerBarView: View {
                 if focus == .elapsed { elapsedEdited = true }
             }
             .onChange(of: focus) { old, new in
-                if new == .elapsed { elapsedEdited = false }
+                if new == .elapsed {
+                    elapsedEdited = false
+                    elapsedSessionRunningID = store.running?.id
+                }
                 if old == .elapsed && new != .elapsed {
                     // Commit na blur samo ako je korisnik zaista kucao — inače bi
                     // ustajali tekst (tick pauzira tokom fokusa) pregazio praćeno vreme.
-                    if elapsedEdited { commitElapsed() }
+                    // Manual entry (bez running timer-a) se beleži isključivo Enter-om,
+                    // blur ga odbacuje.
+                    if elapsedEdited && store.running != nil { commitElapsed() }
                     elapsedEdited = false
                     refreshElapsed()
                 }
@@ -164,8 +169,23 @@ struct TimerBarView: View {
     }
 
     private func commitElapsed() {
-        if !store.setRunningDuration(elapsedText) {
-            elapsedText = store.running.map { DurationFormat.format($0.duration()) } ?? "0:00:00"
+        // Ako se running stanje promenilo tokom kucanja (stop/start/brisanje/sync),
+        // namera unosa više ne važi — odbaci umesto pogrešne interpretacije.
+        guard store.running?.id == elapsedSessionRunningID else {
+            refreshElapsed()
+            return
+        }
+        if store.running != nil {
+            if !store.setRunningDuration(elapsedText) {
+                elapsedText = store.running.map { DurationFormat.format($0.duration()) } ?? "0:00:00"
+            }
+        } else {
+            // Manual entry: projekat + vreme bez play/stop — Enter beleži završen interval.
+            if let duration = DurationFormat.parse(elapsedText), duration > 0 {
+                store.addManualEntry(project: projectText, duration: duration)
+                projectText = ""
+            }
+            elapsedText = "0:00:00"
         }
     }
 
