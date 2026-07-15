@@ -5,6 +5,9 @@ public struct ProjectGroup: Identifiable, Equatable {
     public let totalSeconds: TimeInterval
     public let entries: [TimeEntry]
     public var id: String { project }
+
+    /// Najskoriji update bilo kog entry-ja u grupi — projekat koji je poslednji menjan ide prvi.
+    public var lastUpdatedAt: Date { entries.map(\.updatedAt).max() ?? .distantPast }
 }
 
 public struct DayGroup: Identifiable, Equatable {
@@ -33,8 +36,8 @@ public enum WeekGrouping {
         calendar.dateInterval(of: .weekOfYear, for: date)!
     }
 
-    /// Grupisanje entry-ja po projektu; grupe sortirane po najskorijem entry-ju,
-    /// entry-ji unutar grupe po startu opadajuće.
+    /// Grupisanje entry-ja po projektu; grupe sortirane po poslednjem update-u
+    /// (poslednji menjan/dodat projekat prvi), entry-ji unutar grupe po startu opadajuće.
     public static func groups(from entries: [TimeEntry]) -> [ProjectGroup] {
         Dictionary(grouping: entries, by: \.project)
             .map { project, entries in
@@ -45,7 +48,8 @@ public enum WeekGrouping {
                     entries: sorted
                 )
             }
-            .sorted { ($0.entries.first?.startAt ?? .distantPast) > ($1.entries.first?.startAt ?? .distantPast) }
+            // tiebreak po nazivu → stabilan redosled kad je updatedAt jednak (bez nasumičnog skakanja)
+            .sorted { ($0.lastUpdatedAt, $0.project) > ($1.lastUpdatedAt, $1.project) }
     }
 }
 

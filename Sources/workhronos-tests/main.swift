@@ -234,20 +234,46 @@ func testWeekRequestFiltersAndSorts() throws {
 
 func testGrouping() {
     let now = Date()
-    func entry(_ project: String, offset: TimeInterval, duration: TimeInterval) -> TimeEntry {
-        TimeEntry(project: project, startAt: now.addingTimeInterval(offset),
-                  endAt: now.addingTimeInterval(offset + duration),
-                  createdAt: now, updatedAt: now)
+    func entry(_ project: String, start: TimeInterval, duration: TimeInterval, updated: TimeInterval) -> TimeEntry {
+        TimeEntry(project: project, startAt: now.addingTimeInterval(start),
+                  endAt: now.addingTimeInterval(start + duration),
+                  createdAt: now, updatedAt: now.addingTimeInterval(updated))
     }
+    // "a" ima najskoriji start, ali "b" je poslednji menjan (updatedAt) → "b" ide prvi
     let groups = WeekGrouping.groups(from: [
-        entry("a", offset: -7200, duration: 600),
-        entry("b", offset: -3600, duration: 300),
-        entry("a", offset: -1800, duration: 900),
+        entry("a", start: -7200, duration: 600, updated: -5000),
+        entry("a", start: -1800, duration: 900, updated: -4000),
+        entry("b", start: -3600, duration: 300, updated: -100),
     ])
-    expectEqual(groups.map(\.project), ["a", "b"], "grupe po najskorijem entry-ju")
-    expectClose(groups[0].totalSeconds, 1500, accuracy: 0.5, "total grupe")
-    expectEqual(groups[0].entries.count, 2, "broj entry-ja u grupi")
-    expectClose(groups[0].entries[0].duration(), 900, accuracy: 0.5, "najskoriji entry prvi u grupi")
+    expectEqual(groups.map(\.project), ["b", "a"], "grupe po poslednjem update-u projekta")
+
+    let a = groups.first { $0.project == "a" }!
+    expectClose(a.totalSeconds, 1500, accuracy: 0.5, "total grupe = zbir entry-ja")
+    expectEqual(a.entries.count, 2, "broj entry-ja u grupi")
+    expectClose(a.entries[0].duration(), 900, accuracy: 0.5, "najskoriji entry (po startu) prvi u grupi")
+}
+
+func testEditBumpsProjectOrder() throws {
+    try withTempDatabase { db, _ in
+        let now = Date()
+        try db.write { dbc in
+            for (project, off) in [("a", -7200.0), ("b", -3600.0)] {
+                var e = TimeEntry(project: project, startAt: now.addingTimeInterval(off),
+                                  endAt: now.addingTimeInterval(off + 600),
+                                  createdAt: now.addingTimeInterval(off),
+                                  updatedAt: now.addingTimeInterval(off))
+                try e.insert(dbc)
+            }
+        }
+        var entries = try db.dbQueue.read { try TimeEntry.fetchAll($0) }
+        expectEqual(WeekGrouping.groups(from: entries).map(\.project), ["b", "a"], "pre edita: b (skoriji) prvi")
+
+        // edit projekta "a" bumpuje updatedAt → "a" skače na vrh
+        let aEntry = entries.first { $0.project == "a" }!
+        try db.save(aEntry)
+        entries = try db.dbQueue.read { try TimeEntry.fetchAll($0) }
+        expectEqual(WeekGrouping.groups(from: entries).map(\.project), ["a", "b"], "posle edita: a prvi")
+    }
 }
 
 func testDayGrouping() {
@@ -345,6 +371,7 @@ let tests: [(String, () throws -> Void)] = [
     ("UpdateRunningIsNoOpAfterStop", testUpdateRunningIsNoOpAfterStop),
     ("WeekRequestFiltersAndSorts", testWeekRequestFiltersAndSorts),
     ("Grouping", testGrouping),
+    ("EditBumpsProjectOrder", testEditBumpsProjectOrder),
     ("DayGrouping", testDayGrouping),
     ("DeleteAllEntriesForProject", testDeleteAllEntriesForProject),
     ("ProjectSuggestionsRecencyOrdered", testProjectSuggestionsRecencyOrdered),

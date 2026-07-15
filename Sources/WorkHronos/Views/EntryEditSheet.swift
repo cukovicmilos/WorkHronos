@@ -107,7 +107,14 @@ struct EntryEditSheet: View {
         updated.project = project.trimmingCharacters(in: .whitespaces)
         updated.startAt = start
         updated.endAt = end
-        store.save(updated)
+        // Ne pisati (i ne bumpovati redosled) ako se ništa suštinski nije promenilo —
+        // tolerancija <1s apsorbuje zaokruživanje trajanja na sekunde pri round-tripu.
+        let unchanged = updated.project == entry.project
+            && updated.startAt == entry.startAt
+            && abs((updated.endAt ?? .distantPast).timeIntervalSince(entry.endAt ?? .distantPast)) < 1
+        if !unchanged {
+            store.save(updated)
+        }
         dismiss()
     }
 }
