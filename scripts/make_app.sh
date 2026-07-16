@@ -15,6 +15,8 @@ if [ -f assets/AppIcon.icns ]; then
     ICON_KEYS="    <key>CFBundleIconFile</key>
     <string>AppIcon</string>"
 fi
+# Idle (siva) varijanta — app je koristi za Dock ikonicu dok timer stoji.
+[ -f assets/AppIcon-Idle.icns ] && cp assets/AppIcon-Idle.icns "$APP/Contents/Resources/"
 
 cat > "$APP/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

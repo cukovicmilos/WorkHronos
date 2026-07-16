@@ -5,6 +5,9 @@ import Foundation
 
 let canvas: CGFloat = 1024
 
+// Dve varijante: aktivna (crvena) i idle (siva) — idle se prikazuje u Dock-u dok timer stoji.
+let grayscale = CommandLine.arguments.contains("--gray")
+
 let rep = NSBitmapImageRep(
     bitmapDataPlanes: nil, pixelsWide: Int(canvas), pixelsHigh: Int(canvas),
     bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -21,10 +24,15 @@ let rect = NSRect(x: inset, y: inset, width: canvas - 2 * inset, height: canvas 
 let radius = rect.width * 0.225
 let squircle = NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius)
 
-let gradient = NSGradient(
-    starting: NSColor(calibratedRed: 0.95, green: 0.26, blue: 0.32, alpha: 1),
-    ending: NSColor(calibratedRed: 0.55, green: 0.06, blue: 0.16, alpha: 1)
-)!
+let gradient = grayscale
+    ? NSGradient(
+        starting: NSColor(calibratedWhite: 0.62, alpha: 1),
+        ending: NSColor(calibratedWhite: 0.42, alpha: 1)
+      )!
+    : NSGradient(
+        starting: NSColor(calibratedRed: 0.95, green: 0.26, blue: 0.32, alpha: 1),
+        ending: NSColor(calibratedRed: 0.55, green: 0.06, blue: 0.16, alpha: 1)
+      )!
 gradient.draw(in: squircle, angle: -90)
 
 // beli "timer" SF Symbol u sredini
@@ -51,14 +59,16 @@ tinted.draw(in: glyphRect, from: .zero, operation: .sourceOver, fraction: 1)
 
 NSGraphicsContext.restoreGraphicsState()
 
+let baseName = grayscale ? "AppIcon-Idle" : "AppIcon"
+
 let scriptDir = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
 let root = scriptDir.deletingLastPathComponent()
 let assets = root.appendingPathComponent("assets")
-let iconset = assets.appendingPathComponent("AppIcon.iconset")
+let iconset = assets.appendingPathComponent("\(baseName).iconset")
 try? FileManager.default.removeItem(at: iconset)
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
-let master = assets.appendingPathComponent("AppIcon-1024.png")
+let master = assets.appendingPathComponent("\(baseName)-1024.png")
 try rep.representation(using: .png, properties: [:])!.write(to: master)
 
 func run(_ args: [String]) {
@@ -80,7 +90,7 @@ for size in [16, 32, 128, 256, 512] {
 }
 
 run(["iconutil", "-c", "icns", iconset.path,
-     "-o", assets.appendingPathComponent("AppIcon.icns").path])
+     "-o", assets.appendingPathComponent("\(baseName).icns").path])
 try? FileManager.default.removeItem(at: iconset)
 try? FileManager.default.removeItem(at: master)
-print("OK: assets/AppIcon.icns")
+print("OK: assets/\(baseName).icns")

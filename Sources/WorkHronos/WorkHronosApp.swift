@@ -15,10 +15,12 @@ struct WorkHronosApp: App {
 }
 
 /// Van .app bundle-a (swift run) proces se diže kao background — bez Dock ikonice i fokusa.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        DockIcon.update(running: false)   // start sivo dok store ne javi stvarno stanje
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
