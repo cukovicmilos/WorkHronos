@@ -3,6 +3,7 @@ import WorkHronosKit
 
 struct WeekHistoryView: View {
     @EnvironmentObject var store: AppStore
+    @Environment(\.openWindow) private var openWindow
     @State private var editingEntry: TimeEntry?
     @State private var deletingEntry: TimeEntry?
     @State private var deletingProject: String?
@@ -58,10 +59,16 @@ struct WeekHistoryView: View {
                 .buttonStyle(.borderless)
             Button { store.nextWeek() } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(.borderless)
-            Text(weekLabel)
+            Text(store.weekLabel)
                 .font(.callout.weight(.medium))
                 .onTapGesture { store.goToCurrentWeek() }
                 .help("Click to jump to the current week")
+            Button { openWindow(id: "week-summary") } label: {
+                Image(systemName: "macwindow.on.rectangle")
+            }
+            .buttonStyle(.borderless)
+            .help("Open week summary in a new window")
+            .accessibilityLabel("Open week summary in a new window")
             Spacer()
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 (Text("Today: ").foregroundStyle(.secondary)
@@ -72,16 +79,6 @@ struct WeekHistoryView: View {
                     .lineLimit(1)
             }
         }
-    }
-
-    private var weekLabel: String {
-        let interval = store.weekInterval
-        let lastDay = interval.end.addingTimeInterval(-1)
-        let formatter = DateIntervalFormatter()
-        formatter.dateTemplate = "MMM d"
-        let range = formatter.string(from: interval.start, to: lastDay)
-        let week = store.calendar.component(.weekOfYear, from: interval.start)
-        return "\(range) · W\(week)"
     }
 
     private var emptyState: some View {

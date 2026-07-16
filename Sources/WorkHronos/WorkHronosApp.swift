@@ -11,6 +11,14 @@ struct WorkHronosApp: App {
                 .environmentObject(root)
         }
         .defaultSize(width: 420, height: 560)
+
+        Window("Week Summary", id: "week-summary") {
+            if case .ready(let store) = root.state {
+                WeekSummaryView()
+                    .environmentObject(store)
+            }
+        }
+        .defaultSize(width: 360, height: 420)
     }
 }
 

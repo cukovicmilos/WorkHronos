@@ -37,6 +37,27 @@ final class AppStore: ObservableObject {
 
     var days: [DayGroup] { WeekGrouping.days(from: weekEntries, calendar: calendar) }
 
+    var weekLabel: String {
+        let interval = weekInterval
+        let lastDay = interval.end.addingTimeInterval(-1)
+        let formatter = DateIntervalFormatter()
+        formatter.dateTemplate = "MMM d"
+        let range = formatter.string(from: interval.start, to: lastDay)
+        let week = calendar.component(.weekOfYear, from: interval.start)
+        return "\(range) · W\(week)"
+    }
+
+    /// Zbirni pregled nedelje: grupe po projektu (bez dana), najviše sati prvo.
+    /// Running timer se uračunava ako je startovao u izabranoj nedelji, kao u weekTotal.
+    func weekSummaryGroups() -> [ProjectGroup] {
+        var entries = weekEntries
+        if let running, running.startAt >= weekInterval.start, running.startAt < weekInterval.end {
+            entries.append(running)
+        }
+        return WeekGrouping.groups(from: entries)
+            .sorted { ($0.totalSeconds, $1.project) > ($1.totalSeconds, $0.project) }
+    }
+
     /// Total nedelje; running timer se uračunava ako je startovao u izabranoj nedelji (Toggl).
     func weekTotal(asOf now: Date = Date()) -> TimeInterval {
         var total = weekEntries.reduce(0) { $0 + $1.duration() }
