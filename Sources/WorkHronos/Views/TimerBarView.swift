@@ -57,9 +57,9 @@ struct TimerBarView: View {
                 refreshSuggestions(for: text)
             }
             .onChange(of: focus) { old, new in
-                if new == .project {
-                    refreshSuggestions(for: projectText)
-                } else {
+                // Lista se otvara tek kad korisnik krene da kuca (onChange teksta),
+                // ne na sam fokus polja.
+                if new != .project {
                     dismissSuggestions()
                     if old == .project { commitProjectRename() }
                 }

@@ -47,7 +47,7 @@ final class AppStore: ObservableObject {
         return "\(range) · W\(week)"
     }
 
-    /// Zbirni pregled nedelje: grupe po projektu (bez dana), najviše sati prvo.
+    /// Zbirni pregled nedelje: grupe po projektu (bez dana), abecedno po imenu projekta.
     /// Running timer se uračunava ako je startovao u izabranoj nedelji, kao u weekTotal.
     func weekSummaryGroups() -> [ProjectGroup] {
         var entries = weekEntries
@@ -55,7 +55,7 @@ final class AppStore: ObservableObject {
             entries.append(running)
         }
         return WeekGrouping.groups(from: entries)
-            .sorted { ($0.totalSeconds, $1.project) > ($1.totalSeconds, $0.project) }
+            .sorted { $0.project.localizedCaseInsensitiveCompare($1.project) == .orderedAscending }
     }
 
     /// Total nedelje; running timer se uračunava ako je startovao u izabranoj nedelji (Toggl).
@@ -190,11 +190,11 @@ final class AppStore: ObservableObject {
     // MARK: - Autocomplete
 
     func suggestions(matching text: String) -> [String] {
-        let all = (try? db.projectSuggestions()) ?? []
         let query = text.trimmingCharacters(in: .whitespaces).lowercased()
-        let matches = query.isEmpty
-            ? all
-            : all.filter { $0.lowercased().contains(query) && $0.lowercased() != query }
+        // Prazno polje ne otvara listu — suggestion-i se prikazuju samo dok korisnik kuca.
+        guard !query.isEmpty else { return [] }
+        let all = (try? db.projectSuggestions()) ?? []
+        let matches = all.filter { $0.lowercased().contains(query) && $0.lowercased() != query }
         return Array(matches.prefix(8))
     }
 

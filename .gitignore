@@ -2,3 +2,6 @@
 dist/
 .DS_Store
 CLAUDE.md
+
+# Claude Code local settings (contains user info)
+**/.claude/settings.local.json
