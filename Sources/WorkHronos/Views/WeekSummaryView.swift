@@ -1,8 +1,8 @@
 import SwiftUI
 import WorkHronosKit
 
-/// Zbirni pregled izabrane nedelje: projekti sa ukupnim satima, bez grupisanja po danima.
-/// Prati nedelju izabranu u glavnom prozoru (deli isti AppStore).
+/// Zbirni pregled nedelje: projekti sa ukupnim satima, bez grupisanja po danima.
+/// Bira nedelju nezavisno od glavnog prozora (store drži zaseban summaryWeekStart).
 struct WeekSummaryView: View {
     @EnvironmentObject var store: AppStore
     /// Marker "dokle sam stigao" pri prolasku kroz listu projekata.
@@ -27,15 +27,25 @@ struct WeekSummaryView: View {
             }
         }
         .navigationTitle("Week Summary")
+        // Marker "dokle sam stigao" važi za jednu nedelju — promena nedelje ga poništava.
+        .onChange(of: store.summaryWeekStart) { selectedProject = nil }
     }
 
     private func header(asOf now: Date) -> some View {
-        HStack {
-            Text(store.weekLabel)
+        HStack(spacing: 8) {
+            Button { store.previousSummaryWeek() } label: { Image(systemName: "chevron.left") }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Previous week")
+            Button { store.nextSummaryWeek() } label: { Image(systemName: "chevron.right") }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Next week")
+            Text(store.summaryWeekLabel)
                 .font(.callout.weight(.medium))
+                .onTapGesture { store.goToCurrentSummaryWeek() }
+                .help("Click to jump to the current week")
             Spacer()
             (Text("Week: ").foregroundStyle(.secondary)
-             + Text(DurationFormat.formatHoursMinutes(store.weekTotal(asOf: now))))
+             + Text(DurationFormat.formatHoursMinutes(store.summaryWeekTotal(asOf: now))))
                 .font(.callout.monospacedDigit().weight(.semibold))
                 .lineLimit(1)
         }

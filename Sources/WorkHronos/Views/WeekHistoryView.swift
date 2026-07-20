@@ -57,8 +57,10 @@ struct WeekHistoryView: View {
         HStack(spacing: 8) {
             Button { store.previousWeek() } label: { Image(systemName: "chevron.left") }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Previous week")
             Button { store.nextWeek() } label: { Image(systemName: "chevron.right") }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Next week")
             Text(store.weekLabel)
                 .font(.callout.weight(.medium))
                 .onTapGesture { store.goToCurrentWeek() }

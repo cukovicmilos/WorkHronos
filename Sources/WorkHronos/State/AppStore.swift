@@ -7,15 +7,29 @@ final class AppStore: ObservableObject {
     @Published private(set) var running: TimeEntry?
     @Published private(set) var weekEntries: [TimeEntry] = []
     @Published private(set) var todayEntries: [TimeEntry] = []
+    // didSet se okida i na dodelu iste vrednosti (npr. tap na label dok je već na tekućoj
+    // nedelji) — bez guard-a to je nepotreban teardown + sinhroni re-fetch na main thread-u.
     @Published var selectedWeekStart: Date {
-        didSet { startWeekObservation() }
+        didSet {
+            guard oldValue != selectedWeekStart else { return }
+            startWeekObservation()
+        }
     }
+    /// Week Summary prozor bira nedelju nezavisno od glavnog prozora.
+    @Published var summaryWeekStart: Date {
+        didSet {
+            guard oldValue != summaryWeekStart else { return }
+            startSummaryWeekObservation()
+        }
+    }
+    @Published private(set) var summaryWeekEntries: [TimeEntry] = []
     @Published var errorMessage: String?
 
     private(set) var db: AppDatabase
     private var runningCancellable: AnyDatabaseCancellable?
     private var weekCancellable: AnyDatabaseCancellable?
     private var dayCancellable: AnyDatabaseCancellable?
+    private var summaryWeekCancellable: AnyDatabaseCancellable?
     private var lastKnownCurrentWeekStart: Date
     private var lastKnownDayStart: Date
 
@@ -25,20 +39,25 @@ final class AppStore: ObservableObject {
         self.db = db
         let currentWeekStart = WeekGrouping.weekInterval(containing: Date()).start
         self.selectedWeekStart = currentWeekStart
+        self.summaryWeekStart = currentWeekStart
         self.lastKnownCurrentWeekStart = currentWeekStart
         self.lastKnownDayStart = Calendar.iso8601.startOfDay(for: Date())
         startObservations()
     }
 
-    var weekInterval: DateInterval {
-        let end = calendar.date(byAdding: .day, value: 7, to: selectedWeekStart)!
-        return DateInterval(start: selectedWeekStart, end: end)
+    var weekInterval: DateInterval { interval(startingAt: selectedWeekStart) }
+    var summaryWeekInterval: DateInterval { interval(startingAt: summaryWeekStart) }
+
+    private func interval(startingAt start: Date) -> DateInterval {
+        DateInterval(start: start, end: calendar.date(byAdding: .day, value: 7, to: start)!)
     }
 
     var days: [DayGroup] { WeekGrouping.days(from: weekEntries, calendar: calendar) }
 
-    var weekLabel: String {
-        let interval = weekInterval
+    var weekLabel: String { label(for: weekInterval) }
+    var summaryWeekLabel: String { label(for: summaryWeekInterval) }
+
+    private func label(for interval: DateInterval) -> String {
         let lastDay = interval.end.addingTimeInterval(-1)
         let formatter = DateIntervalFormatter()
         formatter.dateTemplate = "MMM d"
@@ -48,14 +67,25 @@ final class AppStore: ObservableObject {
     }
 
     /// Zbirni pregled nedelje: grupe po projektu (bez dana), abecedno po imenu projekta.
-    /// Running timer se uračunava ako je startovao u izabranoj nedelji, kao u weekTotal.
+    /// Running timer se uračunava ako je startovao u toj nedelji, kao u weekTotal.
     func weekSummaryGroups() -> [ProjectGroup] {
-        var entries = weekEntries
-        if let running, running.startAt >= weekInterval.start, running.startAt < weekInterval.end {
+        var entries = summaryWeekEntries
+        let interval = summaryWeekInterval
+        if let running, running.startAt >= interval.start, running.startAt < interval.end {
             entries.append(running)
         }
         return WeekGrouping.groups(from: entries)
             .sorted { $0.project.localizedCaseInsensitiveCompare($1.project) == .orderedAscending }
+    }
+
+    /// Total nedelje prikazane u Week Summary prozoru.
+    func summaryWeekTotal(asOf now: Date = Date()) -> TimeInterval {
+        var total = summaryWeekEntries.reduce(0) { $0 + $1.duration() }
+        let interval = summaryWeekInterval
+        if let running, running.startAt >= interval.start, running.startAt < interval.end {
+            total += running.duration(asOf: now)
+        }
+        return total
     }
 
     /// Total nedelje; running timer se uračunava ako je startovao u izabranoj nedelji (Toggl).
@@ -91,6 +121,7 @@ final class AppStore: ObservableObject {
         )
         startWeekObservation()
         startDayObservation()
+        startSummaryWeekObservation()
     }
 
     private func startDayObservation() {
@@ -118,6 +149,19 @@ final class AppStore: ObservableObject {
             scheduling: .immediate,
             onError: { [weak self] error in self?.errorMessage = error.localizedDescription },
             onChange: { [weak self] entries in self?.weekEntries = entries }
+        )
+    }
+
+    private func startSummaryWeekObservation() {
+        let interval = summaryWeekInterval
+        let observation = ValueObservation.tracking { db in
+            try TimeEntry.stoppedRequest(in: interval).fetchAll(db)
+        }
+        summaryWeekCancellable = observation.start(
+            in: db.dbQueue,
+            scheduling: .immediate,
+            onError: { [weak self] error in self?.errorMessage = error.localizedDescription },
+            onChange: { [weak self] entries in self?.summaryWeekEntries = entries }
         )
     }
 
@@ -187,6 +231,17 @@ final class AppStore: ObservableObject {
         selectedWeekStart = calendar.date(byAdding: .weekOfYear, value: weeks, to: selectedWeekStart)!
     }
 
+    func previousSummaryWeek() { shiftSummaryWeek(by: -1) }
+    func nextSummaryWeek() { shiftSummaryWeek(by: 1) }
+
+    func goToCurrentSummaryWeek() {
+        summaryWeekStart = WeekGrouping.weekInterval(containing: Date(), calendar: calendar).start
+    }
+
+    private func shiftSummaryWeek(by weeks: Int) {
+        summaryWeekStart = calendar.date(byAdding: .weekOfYear, value: weeks, to: summaryWeekStart)!
+    }
+
     // MARK: - Autocomplete
 
     func suggestions(matching text: String) -> [String] {
@@ -215,6 +270,8 @@ final class AppStore: ObservableObject {
             weekCancellable = nil
             dayCancellable?.cancel()
             dayCancellable = nil
+            summaryWeekCancellable?.cancel()
+            summaryWeekCancellable = nil
             try? db.close()
             db = newDb
             startObservations()
@@ -228,8 +285,12 @@ final class AppStore: ObservableObject {
     func rollDateIfNeeded() {
         let actualWeek = WeekGrouping.weekInterval(containing: Date(), calendar: calendar).start
         if actualWeek != lastKnownCurrentWeekStart {
+            // Oba prozora prate novu nedelju samo ako nisu ručno odlutali sa tekuće.
             if selectedWeekStart == lastKnownCurrentWeekStart {
                 selectedWeekStart = actualWeek
+            }
+            if summaryWeekStart == lastKnownCurrentWeekStart {
+                summaryWeekStart = actualWeek
             }
             lastKnownCurrentWeekStart = actualWeek
         }
