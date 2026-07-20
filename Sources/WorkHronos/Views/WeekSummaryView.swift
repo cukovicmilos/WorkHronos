@@ -5,6 +5,8 @@ import WorkHronosKit
 /// Prati nedelju izabranu u glavnom prozoru (deli isti AppStore).
 struct WeekSummaryView: View {
     @EnvironmentObject var store: AppStore
+    /// Marker "dokle sam stigao" pri prolasku kroz listu projekata.
+    @State private var selectedProject: String?
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -17,7 +19,7 @@ struct WeekSummaryView: View {
                 if groups.isEmpty {
                     emptyState
                 } else {
-                    List(groups) { group in
+                    List(groups, selection: $selectedProject) { group in
                         row(group)
                     }
                     .listStyle(.inset)
