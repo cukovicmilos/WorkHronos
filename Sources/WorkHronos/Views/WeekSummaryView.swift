@@ -10,7 +10,7 @@ struct WeekSummaryView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            let groups = store.weekSummaryGroups()
+            let groups = store.weekSummaryGroups(asOf: context.date)
             VStack(spacing: 0) {
                 header(asOf: context.date)
                     .padding(.horizontal)

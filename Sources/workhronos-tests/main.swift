@@ -253,6 +253,27 @@ func testGrouping() {
     expectClose(a.entries[0].duration(), 900, accuracy: 0.5, "najskoriji entry (po startu) prvi u grupi")
 }
 
+func testGroupingUsesAsOfForRunningEntry() {
+    let now = Date()
+    // Running entry (endAt == nil) — trajanje se meri do "sada", pa ga asOf mora pomerati.
+    let running = TimeEntry(project: "r", startAt: now.addingTimeInterval(-600),
+                            createdAt: now, updatedAt: now)
+    let stopped = TimeEntry(project: "s", startAt: now.addingTimeInterval(-1200),
+                            endAt: now.addingTimeInterval(-900),
+                            createdAt: now, updatedAt: now)
+
+    let atNow = WeekGrouping.groups(from: [running, stopped], asOf: now)
+    expectClose(atNow.first { $0.project == "r" }!.totalSeconds, 600, accuracy: 0.5,
+                "running trajanje do asOf")
+
+    let inTenMinutes = WeekGrouping.groups(from: [running, stopped],
+                                           asOf: now.addingTimeInterval(600))
+    expectClose(inTenMinutes.first { $0.project == "r" }!.totalSeconds, 1200, accuracy: 0.5,
+                "pomeren asOf produžava running")
+    expectClose(inTenMinutes.first { $0.project == "s" }!.totalSeconds, 300, accuracy: 0.5,
+                "završen entry ne zavisi od asOf")
+}
+
 func testEditBumpsProjectOrder() throws {
     try withTempDatabase { db, _ in
         let now = Date()
@@ -371,6 +392,7 @@ let tests: [(String, () throws -> Void)] = [
     ("UpdateRunningIsNoOpAfterStop", testUpdateRunningIsNoOpAfterStop),
     ("WeekRequestFiltersAndSorts", testWeekRequestFiltersAndSorts),
     ("Grouping", testGrouping),
+    ("GroupingUsesAsOfForRunningEntry", testGroupingUsesAsOfForRunningEntry),
     ("EditBumpsProjectOrder", testEditBumpsProjectOrder),
     ("DayGrouping", testDayGrouping),
     ("DeleteAllEntriesForProject", testDeleteAllEntriesForProject),

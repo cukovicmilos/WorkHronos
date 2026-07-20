@@ -23,10 +23,7 @@ struct TimerBarView: View {
             startStopButton
         }
         .zIndex(10)   // suggestion overlay mora preko sadržaja ispod (kasniji siblings)
-        .onReceive(tick) { _ in
-            refreshElapsed()
-            store.rollDateIfNeeded()
-        }
+        .onReceive(tick) { _ in refreshElapsed() }   // rollover vodi store, nezavisno od prozora
         .onChange(of: store.running) { _, running in
             if let running {
                 projectText = running.project

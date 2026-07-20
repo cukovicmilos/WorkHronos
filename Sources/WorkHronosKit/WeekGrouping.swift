@@ -19,13 +19,14 @@ public struct DayGroup: Identifiable, Equatable {
 
 public enum WeekGrouping {
     /// Grupisanje po danima (najskoriji dan prvi), unutar dana po projektu.
-    public static func days(from entries: [TimeEntry], calendar: Calendar = .iso8601) -> [DayGroup] {
+    public static func days(from entries: [TimeEntry], calendar: Calendar = .iso8601,
+                            asOf now: Date = Date()) -> [DayGroup] {
         Dictionary(grouping: entries) { calendar.startOfDay(for: $0.startAt) }
             .map { day, dayEntries in
                 DayGroup(
                     dayStart: day,
-                    totalSeconds: dayEntries.reduce(0) { $0 + $1.duration() },
-                    projects: groups(from: dayEntries)
+                    totalSeconds: dayEntries.reduce(0) { $0 + $1.duration(asOf: now) },
+                    projects: groups(from: dayEntries, asOf: now)
                 )
             }
             .sorted { $0.dayStart > $1.dayStart }
@@ -38,13 +39,15 @@ public enum WeekGrouping {
 
     /// Grupisanje entry-ja po projektu; grupe sortirane po poslednjem update-u
     /// (poslednji menjan/dodat projekat prvi), entry-ji unutar grupe po startu opadajuće.
-    public static func groups(from entries: [TimeEntry]) -> [ProjectGroup] {
+    /// `asOf` određuje "sada" za running entry — pozivalac koji već ima svoj tick (TimelineView)
+    /// prosleđuje isti datum, da se header i redovi ne razilaze za sekundu.
+    public static func groups(from entries: [TimeEntry], asOf now: Date = Date()) -> [ProjectGroup] {
         Dictionary(grouping: entries, by: \.project)
             .map { project, entries in
                 let sorted = entries.sorted { $0.startAt > $1.startAt }
                 return ProjectGroup(
                     project: project,
-                    totalSeconds: sorted.reduce(0) { $0 + $1.duration() },
+                    totalSeconds: sorted.reduce(0) { $0 + $1.duration(asOf: now) },
                     entries: sorted
                 )
             }
