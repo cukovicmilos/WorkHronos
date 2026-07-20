@@ -28,7 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        DockIcon.update(running: false)   // start sivo dok store ne javi stvarno stanje
+        // Ikonicu NE dirati odavde: ovaj callback stiže ~50ms POSLE ContentView.onAppear,
+        // pa bi bezuslovno sivo pregazilo tačno stanje i ostalo takvo (onChange se ne okine
+        // bez promene running-a). Svaka grana RootView-a sama postavlja svoju ikonicu.
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -44,8 +46,10 @@ struct RootView: View {
             switch root.state {
             case .setup:
                 SetupView()
+                    .onAppear { DockIcon.update(running: false) }
             case .unavailable(let path, let message):
                 DatabaseUnavailableView(path: path, message: message)
+                    .onAppear { DockIcon.update(running: false) }
             case .ready(let store):
                 ContentView()
                     .environmentObject(store)

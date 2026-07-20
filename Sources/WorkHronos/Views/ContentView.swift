@@ -16,8 +16,9 @@ struct ContentView: View {
         .onChange(of: store.running) { _, running in
             DockIcon.update(running: running != nil)
         }
-        // store nestao (Dropbox path izgubljen, povratak na setup) — sivo je autoritativno
-        .onDisappear { DockIcon.update(running: false) }
+        // Namerno bez .onDisappear: on se okida i kad se samo zatvori glavni prozor
+        // (app živi dalje ako je Week Summary otvoren), pa bi ugasio ikonicu iako timer radi.
+        // Povratak na setup/unavailable ionako pokrivaju te grane u RootView-u.
         .alert("Error", isPresented: Binding(
             get: { store.errorMessage != nil },
             set: { if !$0 { store.errorMessage = nil } }
