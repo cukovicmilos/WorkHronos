@@ -203,6 +203,7 @@ struct TimerBarView: View {
             if store.running != nil {
                 store.stop()
                 projectText = ""
+                focus = .project
             } else {
                 store.start(project: projectText)
             }
